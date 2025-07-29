@@ -1,0 +1,75 @@
+
+name: Apply/Destroy VCFA Blueprint
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action to run"
+        required: true
+        default: apply
+        type: choice
+        options:
+          - apply
+          - destroy
+      hostname:
+        description: "VM Hostname"
+        required: false
+      ipAddress:
+        description: "Static IP Address"
+        required: false
+      gateway:
+        description: "Default Gateway"
+        required: false
+      prefixLength:
+        description: "Subnet Prefix Length"
+        required: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    env:
+      TF_VAR_url: ${{ secrets.VCFA_URL }}
+      TF_VAR_refresh_token: ${{ secrets.VCFA_REFRESH_TOKEN }}
+      TF_VAR_organization: ${{ secrets.VCFA_ORG }}
+      TF_VAR_insecure: ${{ secrets.VCFA_INSECURE }}
+
+      TF_VAR_hostname:     ${{ github.event.inputs.hostname     != '' && github.event.inputs.hostname     || secrets.HOSTNAME }}
+      TF_VAR_ipAddress:    ${{ github.event.inputs.ipAddress    != '' && github.event.inputs.ipAddress    || secrets.IPADDRESS }}
+      TF_VAR_gateway:      ${{ github.event.inputs.gateway      != '' && github.event.inputs.gateway      || secrets.GATEWAY }}
+      TF_VAR_dns:          ${{ secrets.DNS }}
+      TF_VAR_prefixLength: ${{ github.event.inputs.prefixLength != '' && github.event.inputs.prefixLength || secrets.PREFIXLENGTH }}
+      
+      DEPLOYMENT_NAME: ${{ github.event.inputs.hostname != '' && github.event.inputs.hostname || secrets.HOSTNAME }}
+
+    defaults:
+      run:
+        working-directory: tf
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+          
+      - name: Check Terraform Version
+        run: terraform version
+
+      - name: Terraform Init    
+        run: terraform init -backend-config="path=$HOME/tfstate/${DEPLOYMENT_NAME}.tfstate"
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        run: terraform apply -auto-approve
+
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        run: terraform destroy -auto-approve
+        
+      - name: Terraform Show State
+        run: terraform show
