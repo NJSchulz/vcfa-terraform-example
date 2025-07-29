@@ -45,7 +45,7 @@ terraform {
 }
 ```
 
-In practice, this path is overridden dynamically during the workflow using:
+In practice, the path is overridden dynamically during the workflow using:
 
 ```bash
 terraform init -backend-config="path=$HOME/tfstate/${DEPLOYMENT_NAME}.tfstate"
