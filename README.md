@@ -1,6 +1,6 @@
 # VCFA Terraform Deployment
 
-This repository facilitates **VMware Cloud Foundation Automation (VCFA)** blueprint deployments using **Terraform**. It integrates with **Aria Automation (vRA)** and is designed to work with a **self-hosted GitHub Actions runner** for streamlined on-premises automation.
+This **example repository** facilitates **VMware Cloud Foundation Automation (VCFA)** blueprint deployments using **Terraform**. It integrates with **VCF Automation (VCFA)** and is designed to work with a **self-hosted GitHub Actions runner** for streamlined on-premises automation.
 
 ## Features
 
