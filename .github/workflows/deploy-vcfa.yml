@@ -1,5 +1,4 @@
-
-name: Apply/Destroy VCFA Blueprint
+name: Apply/Destroy VCFA Template
 
 on:
   workflow_dispatch:
@@ -13,7 +12,7 @@ on:
           - apply
           - destroy
       hostname:
-        description: "VM Hostname"
+        description: "VM Hostname (blank = HOSTNAME variable/secret, which reuses one state file)"
         required: false
       ipAddress:
         description: "Static IP Address"
@@ -29,19 +28,28 @@ jobs:
   deploy:
     runs-on: self-hosted
 
+    # One run at a time per deployment name, so two runs never write the same
+    # state file. Secrets aren't available here, so a blank hostname with only a
+    # HOSTNAME secret falls into one shared group (it also shares one state file).
+    concurrency:
+      group: vcfa-deploy-${{ inputs.hostname || vars.HOSTNAME || 'default-hostname' }}
+      cancel-in-progress: false
+
     env:
       TF_VAR_url: ${{ secrets.VCFA_URL }}
       TF_VAR_refresh_token: ${{ secrets.VCFA_REFRESH_TOKEN }}
       TF_VAR_organization: ${{ secrets.VCFA_ORG }}
       TF_VAR_insecure: ${{ secrets.VCFA_INSECURE }}
 
-      TF_VAR_hostname:     ${{ github.event.inputs.hostname     != '' && github.event.inputs.hostname     || secrets.HOSTNAME }}
-      TF_VAR_ipAddress:    ${{ github.event.inputs.ipAddress    != '' && github.event.inputs.ipAddress    || secrets.IPADDRESS }}
-      TF_VAR_gateway:      ${{ github.event.inputs.gateway      != '' && github.event.inputs.gateway      || secrets.GATEWAY }}
-      TF_VAR_dns:          ${{ secrets.DNS }}
-      TF_VAR_prefixLength: ${{ github.event.inputs.prefixLength != '' && github.event.inputs.prefixLength || secrets.PREFIXLENGTH }}
-      
-      DEPLOYMENT_NAME: ${{ github.event.inputs.hostname != '' && github.event.inputs.hostname || secrets.HOSTNAME }}
+      # Non-secret defaults: workflow input, then repository variable, then secret (existing setups).
+      TF_VAR_hostname:     ${{ inputs.hostname     || vars.HOSTNAME     || secrets.HOSTNAME }}
+      TF_VAR_ipAddress:    ${{ inputs.ipAddress    || vars.IPADDRESS    || secrets.IPADDRESS }}
+      TF_VAR_gateway:      ${{ inputs.gateway      || vars.GATEWAY      || secrets.GATEWAY }}
+      TF_VAR_dns:          ${{ vars.DNS            || secrets.DNS }}
+      TF_VAR_prefixLength: ${{ inputs.prefixLength || vars.PREFIXLENGTH || secrets.PREFIXLENGTH }}
+
+      DEPLOYMENT_NAME: ${{ inputs.hostname || vars.HOSTNAME || secrets.HOSTNAME }}
+      TF_ACTION: ${{ inputs.action }}
 
     defaults:
       run:
@@ -49,27 +57,43 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-          
+        uses: actions/checkout@v7
+
+      - name: Validate hostname
+        run: |
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "::error::No hostname given. Set the 'hostname' input, or a HOSTNAME repository variable or secret."
+            exit 1
+          fi
+          if ! [[ "$DEPLOYMENT_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]; then
+            echo "::error::Invalid hostname '$DEPLOYMENT_NAME'. Use 1-63 lowercase letters, digits, or hyphens, starting and ending with a letter or digit."
+            exit 1
+          fi
+
       - name: Check Terraform Version
         run: terraform version
 
-      - name: Terraform Init    
+      - name: Terraform Init
         run: terraform init -backend-config="path=$HOME/tfstate/${DEPLOYMENT_NAME}.tfstate"
 
       - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan
+        run: |
+          if [ "$TF_ACTION" = "destroy" ]; then
+            terraform plan -destroy
+          else
+            terraform plan
+          fi
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.action == 'apply' }}
+        if: ${{ inputs.action == 'apply' }}
         run: terraform apply -auto-approve
 
       - name: Terraform Destroy
-        if: ${{ github.event.inputs.action == 'destroy' }}
+        if: ${{ inputs.action == 'destroy' }}
         run: terraform destroy -auto-approve
-        
+
       - name: Terraform Show State
         run: terraform show
