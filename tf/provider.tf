@@ -9,8 +9,8 @@ terraform {
 }
 
 provider "vra" {
-  url          = var.url
+  url           = var.url
   refresh_token = var.refresh_token
-  organization = var.organization
-  insecure     = var.insecure
+  organization  = var.organization
+  insecure      = var.insecure
 }

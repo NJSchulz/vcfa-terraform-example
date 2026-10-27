@@ -1,13 +1,13 @@
 data "vra_project" "default" {
-  name = "Default"
+  name = var.project_name
 }
 
 data "vra_catalog_item" "blueprint" {
-  name = "NSX Ubuntu Webserver (AWX)"  # Adjust if needed
+  name = var.catalog_item_name
 }
 
 resource "vra_deployment" "vcfa_deployment" {
-  name            = var.hostname  # or a custom var like var.deployment_name
+  name            = var.hostname # or a custom var like var.deployment_name
   description     = "TF Deployment into VCFA"
   project_id      = data.vra_project.default.id
   catalog_item_id = data.vra_catalog_item.blueprint.id
