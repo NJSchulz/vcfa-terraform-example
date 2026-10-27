@@ -1,7 +1,19 @@
-variable "url"            { type = string }
-variable "refresh_token"  { type = string }
-variable "organization"   { type = string }
-variable "insecure"       { type = bool }
+variable "url" { type = string }
+variable "refresh_token" { type = string }
+variable "organization" { type = string }
+variable "insecure" { type = bool }
+
+variable "project_name" {
+  description = "VCF Automation project to deploy into"
+  type        = string
+  default     = "Default"
+}
+
+variable "catalog_item_name" {
+  description = "Catalog item (released VCF Automation template) to deploy"
+  type        = string
+  default     = "NSX Ubuntu Webserver (AWX)"
+}
 
 variable "hostname" {
   description = "Hostname of the deployed VM"
